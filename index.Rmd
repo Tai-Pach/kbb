@@ -2,8 +2,8 @@
 title: "Kelley Blue Book Project"
 output:
   html_document:
-    theme: paper
-    highlight: tango
+    theme: cosmo
+    highlight: textmate
 ---
 
 ##Introduction
