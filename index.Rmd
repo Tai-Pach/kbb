@@ -1,6 +1,9 @@
 ---
 title: "Kelley Blue Book Project"
-output: html_document
+output:
+  html_document:
+    theme: paper
+    highlight: tango
 ---
 
 ##Introduction
