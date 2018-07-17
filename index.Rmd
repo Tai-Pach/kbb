@@ -8,7 +8,7 @@ output:
 ---
 
 ##Introduction
-When you purchase a brand new car, the manufacturer's suggested retail price, the MSRP, is predetermined.   But when you sell your car, and ownership of the vehicle changes hands, how do you determine what the car is worth?  Most likely you go Kelley Blue Book or CarFax to get an appraisal of your car.   There are many factors that contribute to a car's value, from mileage to engine type.  In this project I will show you how you can estimate a car's worth from data gathered from scratch! The workflow looks like this:
+When you purchase a brand new car, the manufacturer's suggested retail price, the MSRP, is predetermined.   But when you sell your car, and ownership of the vehicle changes hands, how do you determine what the car is worth?  Most likely you go to Kelley Blue Book or CarFax to get an appraisal of your car.   There are many factors that contribute to a car's value, from mileage to engine type.  In this project I will show you how you can estimate a car's worth from data gathered from scratch! The workflow looks like this:
 
   1. Scrape Kelley Blue Book's used car listings using a Python script
   2. Data Cleaning
@@ -17,7 +17,7 @@ When you purchase a brand new car, the manufacturer's suggested retail price, th
   5. Designing a predictive model
   
 ##Part I: Collecting The Data
-For any data scientist enthusiast, web scraping is a valuable.  Most of the time  data scientists work with prepared datasets: Perhaps they are supplied by employers, clients, or by dataset hosts like Kaggle.  But for the ever curious data scientist, collecting unstructured data can be a worthwhile venture.  Scraping the web for data can be tricky but Scrapy, a Python based program, makes the process much easier.  Here I will show you how to scrape KBB.com for used car listings.
+For any data scientist enthusiast, web scraping is a valuable.  Most of the time  data scientists work with prepared data sets: Perhaps they are supplied by employers, clients, or by data set hosts like Kaggle.  But for the ever curious data scientist, collecting unstructured data can be a worthwhile venture.  Scraping the web for data can be tricky but Scrapy, a Python based program, makes the process much easier.  Here I will show you how to scrape KBB.com for used car listings.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -194,13 +194,15 @@ I did not employ feature engineering for this project but I may in the future
 library(data.table)
 library(highcharter)
 library(dplyr)
+library(kableExtra)
 
 df = fread('C:/Users/pache_000/Desktop/kbb/kbb_used_final_3.csv')
 ```
 
-A preview of the dataset:
+A preview of the data set:
 ```{r}
-head(df)
+head(df) %>% kable() %>%
+  kable_styling() %>% scroll_box()
 ```
 
 And now the fun part: Seeing what insights the data holds
@@ -209,7 +211,8 @@ one of my favorite R packages for EDA is "XDA".  Let's use the ```numSummary()``
 ```{r}
 library(xda)
 
-numSummary(df)
+numSummary(df) %>%kable() %>%
+  kable_styling() %>% scroll_box()
 ```
 Column Legend (taken from XDA github):
 
@@ -227,10 +230,11 @@ miss% = percentage of total rows with missing values ((miss/n)*100)
 
 This function is very useful for detecting the amount of outliers in a feature.
 
-The less useful charSummary() function can provide us some insight into charater-type features.
+The less useful charSummary() function can provide us some insight into character-type features.
 
 ```{r}
-xda::charSummary(df)
+charSummary(df) %>% kable() %>%
+  kable_styling() %>% scroll_box()
 ```
 Here we see that the Honda Civic LX Sedan is the most frequent make and model being sold.  "Charcoal"" is the most frequent car color, "6-Speed Shiftable Automatic" is the most frequent transmission and so on.
 
@@ -285,7 +289,7 @@ Most cars have mileages between 15,000-30,000 miles.
 hchart(df$year, name = "Year") %>% hc_title(., text = "Car Year Built Distribution")  %>% hc_add_theme(hc_theme_db())
 ```
 
-Here we see something interesting.  Most cars being sold were built in 2015: They are only three years old.  Why is this? Accoriding to Edmunds Used Car Report "24% of franchise used sales were 3 years old in Q1 2018".  Once a three year lease is up, many owners look to sell their car, causing a market saturation of 3-year old cars.  
+Here we see something interesting.  Most cars being sold were built in 2015: They are only three years old.  Why is this? According to Edmunds Used Car Report "24% of franchise used sales were 3 years old in Q1 2018".  Once a three year lease is up, many owners look to sell their car, causing a market saturation of 3-year old cars.  
 
 
 
