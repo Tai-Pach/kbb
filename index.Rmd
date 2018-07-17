@@ -4,12 +4,13 @@ output:
   html_document:
     theme: cosmo
     highlight: textmate
+    code_folding: hide
 ---
 
 ##Introduction
-When you purchase a brand new car, the manufacturer's suggested retail price, the MSRP, is predetermined.   But when you sell your car, and ownership of the vehicle changes hands, how do you determine what the car is worth?  Most likely you go Kelley Book or CarFax to get an appraisal of your car.   There are many factors that contribute to a car's value, from mileage to engine type.  In this project I will show you how you can estimate a car's worth from data gathered from scratch! The workflow looks like this:
+When you purchase a brand new car, the manufacturer's suggested retail price, the MSRP, is predetermined.   But when you sell your car, and ownership of the vehicle changes hands, how do you determine what the car is worth?  Most likely you go Kelley Blue Book or CarFax to get an appraisal of your car.   There are many factors that contribute to a car's value, from mileage to engine type.  In this project I will show you how you can estimate a car's worth from data gathered from scratch! The workflow looks like this:
 
-  1. Scrape Kelley Blue Book's used car listings using a Python scripts
+  1. Scrape Kelley Blue Book's used car listings using a Python script
   2. Data Cleaning
   3. Feature Engineering
   4. Exploratory Data Analysis
@@ -20,6 +21,7 @@ For any data scientist enthusiast, web scraping is a valuable.  Most of the time
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
 ```
 
 ###How Scrapy Works
@@ -33,7 +35,7 @@ Scrapy allows you to program a bot (i.e. a Python script) that collects whatever
     . This script tells the bot what elements of a website you want to scrape
     . For this project I want to scrape the details about the used car that is being listed
 
-```
+```{python, eval=FALSE}
 import scrapy
 
 
@@ -56,7 +58,7 @@ class KbbItem(scrapy.Item):
 3.  Setup the "Spider.py" script
     . This is the brain of the bot.  The Spider script essentially "crawls" the webpage and collects the data you assigned in       the Items script.  This is a hefty script!  I will save the explanation of this code for a blog post.
     
-```
+```{python, eval=FALSE}
 from scrapy import Spider, Request
 from kbb.items import KbbItem
 import re
@@ -65,11 +67,15 @@ import re
 class kbbSpider(Spider):
 	#name: an attribute specifying a unique name to identify the spider
 	name = "kbb_spider"
+	
 	#start_urls: an attribute listing the URLs the spider will start from
 	allowed_domains = ['www.kbb.com']
+	
 	#allowed_urls: the main domain of the website you want to scrape
 	start_urls = ['https://www.kbb.com/cars-for-sale/cars/used-cars/?p=1&color=']
+	
 	#parse(): a method of the spider responsible for processing a Response object downloaded from the URL and returning scraped data (as well as more URLs to follow, if necessary)
+	
 	def parse(self, response):
 		text = response.xpath('//*[@id="listingsContainer"]//span[@class="page-numbers"]/text()').extract()[1]
 
@@ -124,7 +130,7 @@ class kbbSpider(Spider):
 4.  Setup the "pipelines.py" script
     . This script tells the bot how you want to save the data it collects.  CSV format? Text file? It's up to you!
     
-```
+```{python, eval=FALSE}
 from scrapy.exceptions import DropItem
 from scrapy.exporters import CsvItemExporter
 
@@ -153,7 +159,7 @@ class KbbPipeline(object):
 5. Setup the "settings.py" script
     . This script controls the settings of the bot like how fast should the bot scrape. You can change these settings here.
     
-```
+```{python, eval=FALSE}
 BOT_NAME = 'kbb'
 SPIDER_MODULES = ['kbb.spiders']
 NEWSPIDER_MODULE = 'kbb.spiders'
@@ -173,13 +179,13 @@ When you finish your scraping chances are the data will not be ready for explora
   1. Removing spaces, tabs, symbols, etc. from my data
   2. Removing unnecessary strings from my data.  For example: removing "Mileage: " from mileage data
   3. Converting columns of data into the correct data type. (e.g. changing characters to numeric type)
-  4. The MPG feature has too much data per cell.  "City/Highway/Combined/MPGe".  I chose to split this column into four columns:
+  4. The MPG feature has too much data per cell.  "City/Highway/Combined/MPGe".  I chose to split this column into four columns
   5. Creating new columns for make and model, year built, and car condition
   6. Filling blank columns with 'NA'
   
 
 ##Part III: Feature Engineering
-Feature engineering involves creating new columns of data from existing features.  For example: Taking a column of U.S. states and making a new column called Regions based off the states location, so that Connecticut would have the value "Northeast"" and Oregon would be "Northwest".
+Feature engineering involves creating new columns of data from existing features.  For example: Taking a column of U.S. states and making a new column called Regions based off the states location, so that Connecticut would have the value "Northeast" and Oregon would be "Northwest".
 
 I did not employ feature engineering for this project but I may in the future
 
