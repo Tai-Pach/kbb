@@ -327,7 +327,7 @@ quantdftest = select_if(test, is.numeric)
 quantdf$electric_combined_mpg = NULL
 quantdftest$electric_combined_mpg = NULL
 quantdf = na.omit(quantdf)
-
+quantdftest = na.omit(quantdftest)
 #initial model
 model = lm(price ~ . , data = quantdf)
 ```
@@ -354,6 +354,7 @@ quant_df_bc = mapply(bc,quantdf,lambda)
 #convert quant_df_bc to dataframe
 quant_df_bc = data.frame(quant_df_bc)
 ```
+
 ```{r}
 #new multilinear model that uses our boxcox transfomed dataframe
 model.bc = lm(price ~ ., data = quant_df_bc)
@@ -418,23 +419,23 @@ compare_norm = data.frame(mapply(invBoxCox,compare,lambda))
 Metrics::rmsle(compare_norm[,1], compare_norm[,2])
 ```
 
-Density plot showing the distribution of actual and predicted car values:
+###Density plot showing the distribution of actual and predicted car values:
 ```{r}
 library(highcharter)
 
-hchart(density(compare_norm$actual), type = "area", color = "#B71C1C", name = "actual price")%>% hc_add_series(density(compare_norm$predicted), area = TRUE, name = "predicted") %>% hc_add_theme(hc_theme_db()) %>% hc_title(., text = "actual vs. predicted")
+hchart(density(compare_norm$actual), type = "area", color = "#B71C1C", name = "actual price")%>% hc_add_series(density(compare_norm$predicted), area = TRUE, name = "predicted") %>% hc_add_theme(hc_theme_db()) %>% hc_title(., text = "Actual Car Price vs. Predicted")
 ```
 
 ###Applying our model on the test set...
-
 ```{r}
+
 quant_dftest_bc = mapply(bc,quantdftest,lambda)
 
 #convert quant_df_bc to dataframe
 quant_dftest_bc = data.frame(quant_dftest_bc)
 
 quant_dftest_bc =na.omit(quant_dftest_bc)
-quantdftest = na.omit(quantdftest)
+
 
 library(lmridge)
 ridge.final = lmridge(price ~., data = quant_df_bc ,  lambda=lambda)
@@ -447,6 +448,7 @@ myPrediction =  cbind(price, compare_test)
 ```
 
 Root mean squared log error(RMSLE):
+
 ```{r}
 #Accuracy:
 #mean(apply(myPrediction, 1, min)/apply(myPrediction, 1, max))
