@@ -20,10 +20,12 @@ When you purchase a brand new car, the manufacturer's suggested retail price, th
 For any data scientist enthusiast, web scraping is a valuable.  Most of the time  data scientists work with prepared data sets: Perhaps they are supplied by employers, clients, or by data set hosts like Kaggle.  But for the ever curious data scientist, collecting unstructured data can be a worthwhile venture.  Scraping the web for data can be tricky but Scrapy, a Python based program, makes the process much easier.  Here I will show you how to scrape KBB.com for used car listings.
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 ```
 
+```{r}
+library(reticulate)
+```
 ###How Scrapy Works
 Scrapy allows you to program a bot (i.e. a Python script) that collects whatever data you want from a webpage.  Although I won't go in to depth about all the code a Scrapy bot requires, I will outline key points in Scrapy bot design.
 
@@ -196,7 +198,7 @@ library(highcharter)
 library(dplyr)
 library(kableExtra)
 
-df = fread('C:/Users/pache_000/Desktop/kbb/kbb_used_final_3.csv')
+df = fread('kbb_used_final_3.csv')
 ```
 
 A preview of the data set:
@@ -292,5 +294,163 @@ hchart(df$year, name = "Year") %>% hc_title(., text = "Car Year Built Distributi
 Here we see something interesting.  Most cars being sold were built in 2015: They are only three years old.  Why is this? According to Edmunds Used Car Report "24% of franchise used sales were 3 years old in Q1 2018".  Once a three year lease is up, many owners look to sell their car, causing a market saturation of 3-year old cars.  
 
 
+###Can we predict a car's resell value?
 
+In this next section we will train a Multilinear Regression model with Ridge regularization to predict the price of used cars from data the model has never seen.
+
+
+```{r}
+library(gradDescent)
+library(data.table)
+library(dplyr)
+library(ISLR)
+library(glmnet)
+library(MASS)
+library(car)
+```
+
+```{r}
+df = fread('C:/Users/pache_000/Desktop/kbb/KBB_used_final_3.csv')
+
+#80/20 Train-Test split
+splitDF = splitData(df, 0.8, seed = 1)
+
+train = splitDF$dataTrain
+test = splitDF$dataTest
+```
+
+For simplicity sake, I will you only use the quantitative features in this demonstration.
+
+```{r}
+quantdf = select_if(train, is.numeric)
+quantdftest = select_if(test, is.numeric)
+quantdf$electric_combined_mpg = NULL
+quantdftest$electric_combined_mpg = NULL
+quantdf = na.omit(quantdf)
+
+#initial model
+model = lm(price ~ . , data = quantdf)
+```
+...Removing outliers
+```{r}
+quantdf = quantdf[-c(2359, 6371, 3701, 2526, 2916),] 
+quantdf = quantdf[-c(1933, 274, 6731),]
+quantdf = quantdf[-c(3124, 3708, 2005, 5534),]
+```
+...applying boxcox transformation to our model
+```{r}
+model.transformed = boxcox(model, lambda = seq(-2, 2, 1/10), plotit = TRUE,
+       interp = T, eps = 1/50, xlab = expression(lambda),
+       ylab = "log-Likelihood")
+#Extracting best lambda by finding the maximum log-likelihood.
+lambda = model.transformed$x[which(model.transformed$y == max(model.transformed$y))]
+
+#defining a boxcox function
+bc <- function (obs, lambda) {(obs^lambda-1)/lambda }
+
+#Use mapply() to apply the bc function to our dataset using our best lambda 
+quant_df_bc = mapply(bc,quantdf,lambda)
+
+#convert quant_df_bc to dataframe
+quant_df_bc = data.frame(quant_df_bc)
+```
+```{r}
+#new multilinear model that uses our boxcox transfomed dataframe
+model.bc = lm(price ~ ., data = quant_df_bc)
+plot(model.bc)
+
+summary(model.bc)
+vif(model.bc)
+coef(model.bc)
+```
+
+```{r}
+x = model.matrix(price ~ ., data = quant_df_bc)[, -1] #Dropping the intercept column.
+y = quant_df_bc$price
+#define grid for our ridge regression
+grid = 10^seq(3, -5, length = 100)
+#create our ridge model using x, y, and grid.
+ridge.models = glmnet(x, y, alpha = 0, lambda = grid)
+
+plot(ridge.models, xvar = "lambda", label = TRUE, main = "Ridge Regression")
+
+set.seed(0)
+traindf = sample(1:nrow(x), 8*nrow(x)/10)
+testdf = (-traindf)
+y.test = y[testdf]
+
+#Double check 70/30 train/test split
+#length(traindf)/nrow(x)
+#length(y.test)/nrow(x)
+```
+...Running 10-fold cross validation.
+```{r}
+set.seed(0)
+cv.ridge.out = cv.glmnet(x[traindf, ], y[traindf],
+                         lambda = grid, alpha = 0, nfolds = 10)
+plot(cv.ridge.out, main = "Ridge Regression\n")
+```
+
+```{r}
+bestlambda.ridge = cv.ridge.out$lambda.min
+#bestlambda.ridge # 0.00001 best lamda for our ridge regression
+#log(bestlambda.ridge) # -11.51293 log of best lamda for our ridge regression
+
+ridge.bestlambdatrain = predict.cv.glmnet(cv.ridge.out, s ="lambda.min", newx = x[testdf, ]) 
+#mean((ridge.bestlambdatrain - y.test)^2) #MSE = 0.0000156
+
+#What is the test RMSE associated with this best value of lambda?
+#sqrt(mean((ridge.bestlambdatrain - y.test)^2)) #RMSE = .003
+```
+
+What is the accuracy of our model after 10-fold cross validation?
+```{r}
+compare <- cbind(actual = y.test, ridge.bestlambdatrain)
+compare <- data.frame(compare)
+compare  = compare %>% rename(., predicted = X1)
+
+#Undo Boxcox transformation
+invBoxCox <- function(x, lambda){ 
+    if (lambda == 0) exp(x) else (lambda*x + 1)^(1/lambda) }
+
+compare_norm = data.frame(mapply(invBoxCox,compare,lambda))
+#mean(apply(compare_norm, 1, min)/apply(compare_norm, 1, max))
+Metrics::rmsle(compare_norm[,1], compare_norm[,2])
+```
+
+Density plot showing the distribution of actual and predicted car values:
+```{r}
+library(highcharter)
+
+hchart(density(compare_norm$actual), type = "area", color = "#B71C1C", name = "actual price")%>% hc_add_series(density(compare_norm$predicted), area = TRUE, name = "predicted") %>% hc_add_theme(hc_theme_db()) %>% hc_title(., text = "actual vs. predicted")
+```
+
+###Applying our model on the test set...
+
+```{r}
+quant_dftest_bc = mapply(bc,quantdftest,lambda)
+
+#convert quant_df_bc to dataframe
+quant_dftest_bc = data.frame(quant_dftest_bc)
+
+quant_dftest_bc =na.omit(quant_dftest_bc)
+quantdftest = na.omit(quantdftest)
+
+library(lmridge)
+ridge.final = lmridge(price ~., data = quant_df_bc ,  lambda=lambda)
+test_prediction = data.frame(predict.lmridge(ridge.final, newdata = quant_dftest_bc))
+compare_test = data.frame(mapply(invBoxCox, test_prediction, lambda))
+
+price = data.frame(quantdftest$price)
+
+myPrediction =  cbind(price, compare_test)
+```
+
+Root mean squared log error(RMSLE):
+```{r}
+#Accuracy:
+#mean(apply(myPrediction, 1, min)/apply(myPrediction, 1, max))
+library(Metrics)
+Metrics::rmsle(myPrediction$quantdftest.price, myPrediction$predict.lmridge.ridge.final..newdata...quant_dftest_bc.)
+```
 
